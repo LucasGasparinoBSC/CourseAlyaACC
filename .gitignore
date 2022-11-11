@@ -1,3 +1,5 @@
 *.x
 *.o
 *.mod
+*.txt
+*.nsys-rep
