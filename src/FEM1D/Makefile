@@ -6,7 +6,7 @@ CCXY = cc86
 CUDAXY = cuda11.7
 
 # Set the flags for the nnvfortran compiler
-FFLAGS = -fast -Minfo=all -gpu=$(CCXY),$(CUDAXY),managed -cuda -acc -mp=multicore
+FFLAGS = -fast -Minfo=all -gpu=$(CCXY),$(CUDAXY),managed,lineinfo -cuda -acc -mp=multicore
 
 # Set the source files
 SRC = fem1d.f90
