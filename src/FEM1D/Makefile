@@ -9,13 +9,13 @@ CUDAXY = cuda11.7
 FFLAGS = -fast -Minfo=all -gpu=$(CCXY),$(CUDAXY),managed -cuda -acc -mp=multicore
 
 # Set the source files
-SRC = conjGrad.f90
+SRC = fem1d.f90
 
 # Set the list of objects
 OBJ = $(SRC:.f90=.o)
 
 # Set the name of the executable
-EXE = conjGrad.x
+EXE = FEM1D.x
 
 # Set the all target
 all: $(EXE)
