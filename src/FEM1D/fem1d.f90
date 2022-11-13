@@ -416,7 +416,7 @@ program fem1d
 			avgTime = avgTime + time
 		end do
 		avgTime = avgTime / real(nTimes,8)
-		write(*,*) "Avergae time: ", avgTime, "s"
+		write(*,*) "Average time: ", avgTime, "s"
 		print *, sum(Rconvec)
 		! Call and time the acc convective kernel n times
 		allocate(Rconvec(nPoints))
@@ -432,6 +432,6 @@ program fem1d
 		end do
 		!$acc exit data delete(listConnec,wgp,Ngp,dNgp,Je,He,phi) copyout(Rconvec)
 		avgTime = avgTime / real(nTimes,8)
-		write(*,*) "Avergae time: ", avgTime, "s"
+		write(*,*) "Average time: ", avgTime, "s"
 		print *, sum(Rconvec)
 end program fem1d
