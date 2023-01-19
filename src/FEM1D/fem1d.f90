@@ -1,3 +1,12 @@
+! Very basic example of the FE method applied to a 1D scalar convection term.
+! Kernels are implemented in both OpenACC and OpenMP.
+! Suggestions:
+!     1. Very the order and number  of elements to see what happens.
+!     2. Very the number of OpenMP threads to see what happens.
+!     3. Run the ACC kernel with ACC disabled (remove the -gpu=* andd -acc flags from the Makefile).
+!     4. On the ACC convective kernel, add "vector_length(*)" to the loop gang directive, with different values.
+!     5. try to build a  dissipative kernel: Rdiff^e_a = W_g * J_e * (1/Je)*dN^g_a/dxi * (1/Je)*dN^g_b/dxi * u^e_b
+
 module mesh
 	implicit none
 		public :: generateMesh
@@ -14,41 +23,55 @@ module mesh
 					real(4)   , parameter   :: xMin = 0.0, xMax = 1.0
 					real(4)                 :: aux, x0
 					! Initialize the output arrays to 0
+					!$acc kernels
 					listConnec(:,:) = 0
 					xyz(:)          = 0.0
-					! Compute eelement size hElem
+					!$acc end kernels
+					! Compute element size hElem
 					hElem = (xMax - xMin) / real(nElem,8)
 					! Generate linear mesh data: connectivity and coordinates
 					! Connectivity
+					!$acc parallel loop gang
 					do iElem = 1, nElem
+						!$acc loop seq
 						do iNode = 1, 2
 							listConnec(iElem,iNode) = iElem + iNode - 1
 						end do
 					end do
+					!$acc end parallel loop
 					! Coordinates
+					!$acc parallel loop gang
 					do iElem = 1, nElem
+						!$acc loop seq
 						do iNode = 1, 2
 							iPoint = listConnec(iElem,iNode)
 							xyz(iPoint) = xMin + (iPoint-1)*((xMax-xMin)/nElem)
 						end do
 					end do
+					!$acc end parallel loop
 					! If order > 1, generate extra points and connectivity
 					if (pOrder > 1) then
 						! Connectivity
+						!$acc parallel loop gang
 						do iElem = 1, nElem
+							!$acc loop vector
 							do iNode = 3, nNodes
 								listConnec(iElem,iNode) = nElem+(nNodes-2)*(iElem-1)+iNode-1
 							end do
 						end do
+						!$acc end parallel loop
 						! Coordinates
 						aux = hElem / real(pOrder,8)
+						!$acc parallel loop gang
 						do iElem = 1, nElem
+							!$acc loop vector
 							do iNode = 3, nNodes
 								iPoint = listConnec(iElem,iNode)
 								x0 = xyz(listConnec(iElem,1))
 								xyz(iPoint) = x0 + (iNode-2)*aux
 							end do
 						end do
+						!$acc end parallel loop
 					end if
 			end subroutine generateMesh
 end module mesh
@@ -367,11 +390,11 @@ program fem1d
 	use omp_lib
 	use openacc
 	implicit none
-		integer(4), parameter   :: pOrder=10
+		integer(4), parameter   :: pOrder=10 ! Element order (change at will up to 10)
 		integer(4), parameter   :: nNodes=pOrder+1
 		integer(4), parameter   :: nGauss=pOrder+1
 		integer(4), parameter   :: nTimes=10
-		integer(8), parameter   :: nElem=1e6*64
+		integer(8), parameter   :: nElem=1e4*64 ! Number of elements (change at will)
 		integer(8), parameter   :: nPoints=(nElem+1) + (nElem*(pOrder-1))
 		integer(8), allocatable :: listConnec(:,:)
 		integer(4)              :: iNode, iGauss, iTime
@@ -401,9 +424,11 @@ program fem1d
 		call evalElemInfo(pOrder,wgp,Ngp,dNgp)
 		! Generate initial dummy data
 		allocate(phi(nPoints))
+		!$acc parallel loop
 		do iPoint = 1,nPoints
 			phi(iPoint) = 100.0*sin(2*10*pi*xyz(iPoint))
 		end do
+		!$acc end parallel loop
 		! Call and time the omp convective kernel n times
 		allocate(Rconvec(nPoints))
 		avgTime = 0.0

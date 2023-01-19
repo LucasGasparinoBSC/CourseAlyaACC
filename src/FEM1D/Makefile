@@ -2,8 +2,8 @@
 FC = nvfortran
 
 # Set device compute capability and cuda version
-CCXY = cc86
-CUDAXY = cuda11.7
+CCXY = cc61
+CUDAXY = cuda11.8
 
 # Set the flags for the nnvfortran compiler
 FFLAGS = -fast -Minfo=all -gpu=$(CCXY),$(CUDAXY),managed,lineinfo -cuda -acc -mp=multicore
@@ -29,6 +29,10 @@ $(EXE): $(OBJ)
 	$(FC) $(FFLAGS) -o $@ $^
 	rm -rf *.o *.mod
 
+# Rule to run the executable with nsys
+run:
+	nsys profile --stats=true --force-overwrite=true --trace=cuda,nvtx,openacc,openmp --output=FEM1D ./$(EXE)
+
 # Clean the directory
 clean:
-	rm -f *.o *.mod *.x
+	rm -f *.o *.mod *.x *.nsys-rep *.sqlite
