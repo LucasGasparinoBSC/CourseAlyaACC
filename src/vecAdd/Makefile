@@ -6,7 +6,7 @@ CCXY = cc61
 CUDAXY = cuda11.8
 
 # Set the flags for the nnvfortran compiler
-FFLAGS = -fast -Minfo=all -gpu=$(CCXY),$(CUDAXY),managed,,lineinfo -cuda -acc -mp=multicore
+FFLAGS = -fast -Minfo=all -gpu=$(CCXY),$(CUDAXY),managed,lineinfo -cuda -acc -mp=multicore
 
 # Set the source files
 SRC = vecAdd.f90
