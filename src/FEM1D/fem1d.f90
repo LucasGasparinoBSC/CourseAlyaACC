@@ -312,8 +312,40 @@ end module FEM
 
 module elemOps
 	implicit none
-		public :: convec_omp, convec_acc
+		public :: convec, convec_omp, convec_acc
 		contains
+			subroutine convec(nElem,nNodes,nGauss,nPoints,listConnec,wgp,Ngp,dNgp,Je,He,phi,Rconvec)
+				implicit none
+					integer(4), intent(in)  :: nNodes, nGauss
+					integer(8), intent(in)  :: nElem, nPoints
+					integer(8), intent(in)  :: listConnec(nElem,nNodes)
+					real(4)   , intent(in)  :: wgp(nGauss), Ngp(nGauss,nNodes), dNgp(nGauss,nNodes)
+					real(4)   , intent(in)  :: Je, He, phi(nPoints)
+					real(4)   , intent(out) :: Rconvec(nPoints)
+					integer(4)              :: iElem, iNode, iGauss, iPoint
+					real(4)                 :: phiElem(nNodes), aux
+					! Initialize residual
+					Rconvec = 0.0
+					! Loop over elements
+					do iElem = 1,nElem
+						! Extract nodal values
+						do iNode = 1,nNodes
+							iPoint = listConnec(iElem,iNode)
+							phiElem(iNode) = phi(iPoint)
+						end do
+						! Loop over Gauss points
+						do iGauss = 1,nGauss
+							! Compute derivatives
+							aux = dot_product(dNgp(iGauss,:),phiElem(:))
+							! Compute residual
+							do iNode = 1,nNodes
+								iPoint = listConnec(iElem,iNode)
+								Rconvec(iPoint) = Rconvec(iPoint) + (wgp(iGauss) * Ngp(iGauss,iNode) * aux)
+							end do
+						end do
+					end do
+			end subroutine convec
+
 			subroutine convec_omp(nElem,nNodes,nGauss,nPoints,listConnec,wgp,Ngp,dNgp,Je,He,phi,Rconvec)
 				implicit none
 					integer(4), intent(in)  :: nNodes, nGauss
@@ -372,12 +404,12 @@ module elemOps
 								aux = aux + (dNgp(iGauss,iNode) * phi(listConnec(iElem,iNode)))
 							end do
 							!$acc loop vector
-							do iNode = 1,nNodes
-								!$acc atomic update
+						do iNode = 1,nNodes
+							!$acc atomic update
 								Rconvec(listConnec(iElem,iNode)) = Rconvec(listConnec(iElem,iNode)) + (wgp(iGauss) * Ngp(iGauss,iNode) * aux)
-								!$acc end atomic
-							end do
+							!$acc end atomic
 						end do
+					end do
 					end do
 					!$acc end parallel loop
 			end subroutine convec_acc
@@ -390,19 +422,21 @@ program fem1d
 	use omp_lib
 	use openacc
 	implicit none
-		integer(4), parameter   :: pOrder=10 ! Element order (change at will up to 10)
+		integer(4), parameter   :: pOrder=4 ! Element order (change at will up to 10)
 		integer(4), parameter   :: nNodes=pOrder+1
 		integer(4), parameter   :: nGauss=pOrder+1
 		integer(4), parameter   :: nTimes=10
-		integer(8), parameter   :: nElem=1e4*64 ! Number of elements (change at will)
+		!integer(8), parameter   :: nElem=1e4*64 ! Number of elements (change at will)
+		integer(8), parameter   :: nElem=10000000 ! Number of elements (change at will)
 		integer(8), parameter   :: nPoints=(nElem+1) + (nElem*(pOrder-1))
 		integer(8), allocatable :: listConnec(:,:)
 		integer(4)              :: iNode, iGauss, iTime
 		integer(8)              :: iElem, iPoint
 		real(8)   , parameter   :: pi=3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986d0
 		real(4)   , allocatable :: xyz(:), wgp(:), phi(:), Rconvec(:), Ngp(:,:), dNgp(:,:)
+		real(4)   , allocatable :: Rconvec_ACC(:), Rconvec_OMP(:)
 		real(4)                 :: hElem, Je, He
-		real(4)                 :: t0, t1, time, avgTime
+		real(4)                 :: t0, t1, time, avgTime, maxDiff, diff
 		! Display number of threads and number of nvidia devices
 		write(*,'(a)') "!----------------------------------------!"
 		write(*,'(a,i4)') "Number of threads: ", omp_get_max_threads()
@@ -414,6 +448,15 @@ program fem1d
 		write(*,'(a)') "!----------------------------------------!"
 		write(*,'(a,i0)') "Number of elements: ", nElem
 		write(*,'(a,i0)') "Number of points: ", nPoints
+		write(*,'(a)') "!----------------------------------------!"
+		!do iElem = 1,nElem
+		!	write(*,*) iElem, ":", listConnec(iElem,:)
+		!end do
+		write(*,'(a)') "!----------------------------------------!"
+		!do iPoint = 1,nPoints
+		!	write(*,*) iPoint, ":", xyz(iPoint)
+		!end do
+		write(*,'(a)') "!----------------------------------------!"
 		! Generate FEM info
 		allocate(wgp(nGauss))
 		allocate(Ngp(nGauss,nNodes))
@@ -426,15 +469,17 @@ program fem1d
 		allocate(phi(nPoints))
 		!$acc parallel loop
 		do iPoint = 1,nPoints
-			phi(iPoint) = 100.0*sin(2*10*pi*xyz(iPoint))
+			!phi(iPoint) = 1000.0*sin(2*100*pi*xyz(iPoint))
+			phi(iPoint) = real(iPoint,4)/real(nPoints,4)
 		end do
 		!$acc end parallel loop
-		! Call and time the omp convective kernel n times
-		allocate(Rconvec(nPoints))
+		! Allocate residual arrays
+		allocate(Rconvec(nPoints), Rconvec_ACC(nPoints), Rconvec_OMP(nPoints))
+		! Call and time the single thread convective kernel n times
 		avgTime = 0.0
 		do iTime = 1,nTimes
 			call CPU_TIME(t0)
-			call convec_omp(nElem,nNodes,nGauss,nPoints,listConnec,wgp,Ngp,dNgp,Je,He,phi,Rconvec)
+			call convec(nElem,nNodes,nGauss,nPoints,listConnec,wgp,Ngp,dNgp,Je,He,phi,Rconvec)
 			call CPU_TIME(t1)
 			write(*,*) "Completed in ", t1-t0, "s"
 			time = t1-t0
@@ -443,20 +488,70 @@ program fem1d
 		avgTime = avgTime / real(nTimes,8)
 		write(*,*) "Average time: ", avgTime, "s"
 		print *, sum(Rconvec)
+		! Call and time the omp convective kernel n times
+		avgTime = 0.0
+		do iTime = 1,nTimes
+			call CPU_TIME(t0)
+			call convec_omp(nElem,nNodes,nGauss,nPoints,listConnec,wgp,Ngp,dNgp,Je,He,phi,Rconvec_OMP)
+			call CPU_TIME(t1)
+			write(*,*) "OMP Completed in ", t1-t0, "s"
+			time = t1-t0
+			avgTime = avgTime + time
+		end do
+		avgTime = avgTime / real(nTimes,8)
+		write(*,*) "OMP Average time: ", avgTime, "s"
+		print *, sum(Rconvec_OMP)
 		! Call and time the acc convective kernel n times
-		allocate(Rconvec(nPoints))
 		avgTime = 0.0
 		!$acc enter data copyin(listConnec,wgp,Ngp,dNgp,Je,He,phi)
 		do iTime = 1,nTimes
 			call CPU_TIME(t0)
-			call convec_acc(nElem,nNodes,nGauss,nPoints,listConnec,wgp,Ngp,dNgp,Je,He,phi,Rconvec)
+			call convec_acc(nElem,nNodes,nGauss,nPoints,listConnec,wgp,Ngp,dNgp,Je,He,phi,Rconvec_ACC)
 			call CPU_TIME(t1)
-			write(*,*) "Completed in ", t1-t0, "s"
+			write(*,*) "ACC Completed in ", t1-t0, "s"
 			time = t1-t0
 			avgTime = avgTime + time
 		end do
 		!$acc exit data delete(listConnec,wgp,Ngp,dNgp,Je,He,phi) copyout(Rconvec)
 		avgTime = avgTime / real(nTimes,8)
-		write(*,*) "Average time: ", avgTime, "s"
-		print *, sum(Rconvec)
+		write(*,*) "ACC Average time: ", avgTime, "s"
+		print *, sum(Rconvec_ACC)
+		! Save formatted results to a file
+		open(1,file='results.txt',status='replace')
+		do iPoint = 1,nPoints
+			write(1,10) iPoint, xyz(iPoint), phi(iPoint), Rconvec(iPoint), Rconvec_OMP(iPoint), Rconvec_ACC(iPoint)
+		end do
+10      format(1x,i0,1x,f16.8,1x,f16.8,1x,f16.8,1x,f16.8,1x,f16.8)
+		close(1)
+		! Write differences to a formatted file, using same format as 10
+		open(1,file='diff.txt',status='replace')
+		do iPoint = 1,nPoints
+			write(1,20) iPoint, abs(Rconvec(iPoint)-Rconvec_OMP(iPoint)), abs(Rconvec(iPoint)-Rconvec_ACC(iPoint))
+		end do
+20      format(1x,i0,1x,f16.8,1x,f16.8)
+		close(1)
+		! Find the mmaximum difference for each case
+		maxDiff = 0.0
+		do iPoint = 1,nPoints
+			diff = abs(Rconvec(iPoint)-Rconvec_OMP(iPoint))
+			if (diff > maxDiff) maxDiff = diff
+		end do
+		write(*,*) "Max diff omp: ", maxDiff
+		maxDiff = 0.0
+		do iPoint = 1,nPoints
+			diff = abs(Rconvec(iPoint)-Rconvec_ACC(iPoint))
+			if (diff > maxDiff) maxDiff = diff
+		end do
+		write(*,*) "Max diff acc: ", maxDiff
+		! Deallocate arrays
+		deallocate(listConnec)
+		deallocate(xyz)
+		deallocate(wgp)
+		deallocate(Ngp)
+		deallocate(dNgp)
+		deallocate(phi)
+		deallocate(Rconvec)
+		deallocate(Rconvec_ACC)
+		deallocate(Rconvec_OMP)
+		! End program
 end program fem1d
