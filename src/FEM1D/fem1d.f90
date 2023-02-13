@@ -18,10 +18,10 @@ module mesh
 					integer(8), intent(out) :: listConnec(nElem,nNodes)
 					integer(4)              :: iNode
 					integer(8)              :: iElem, iPoint
-					real(4)   , intent(out) :: xyz(nPoints)
-					real(4)   , intent(out) :: hElem
-					real(4)   , parameter   :: xMin = 0.0, xMax = 1.0
-					real(4)                 :: aux, x0
+					real(8)   , intent(out) :: xyz(nPoints)
+					real(8)   , intent(out) :: hElem
+					real(8)   , parameter   :: xMin = 0.0, xMax = 1.0
+					real(8)                 :: aux, x0
 					! Initialize the output arrays to 0
 					!$acc kernels
 					listConnec(:,:) = 0
@@ -84,8 +84,8 @@ module interpolation
 				implicit none
 					integer(4), intent(in)  :: pOrder
 					integer(4)              :: i
-					real(4)   , intent(out) :: xi(pOrder+1)
-					real(4)                 :: h
+					real(8)   , intent(out) :: xi(pOrder+1)
+					real(8)                 :: h
 					xi(1) = -1.0
 					xi(2) =  1.0
 					h = 2.0/real(pOrder,8)
@@ -98,9 +98,9 @@ module interpolation
 			pure subroutine evalLagrangePoly(pOrder,x,lpXi)
 				implicit none
 					integer(4), intent(in)  :: pOrder
-					real(4)   , intent(in)  :: x
-					real(4)   , intent(out) :: lpXi(pOrder+1)
-					real(4)                 :: xi(pOrder+1)
+					real(8)   , intent(in)  :: x
+					real(8)   , intent(out) :: lpXi(pOrder+1)
+					real(8)                 :: xi(pOrder+1)
 					integer(4)              :: i, j
 					call lagrangeGrid(pOrder,xi)
 					do i = 1, pOrder+1
@@ -115,11 +115,11 @@ module interpolation
 			pure subroutine evalLagrangePolyDeriv(pOrder,x,dlpXi)
 				implicit none
 					integer(4), intent(in)  :: pOrder
-					real(4)   , intent(in)  :: x
-					real(4)   , intent(out) :: dlpXi(pOrder+1)
-					real(4)                 :: xi(pOrder+1)
+					real(8)   , intent(in)  :: x
+					real(8)   , intent(out) :: dlpXi(pOrder+1)
+					real(8)                 :: xi(pOrder+1)
 					integer(4)              :: i, j, k
-					real(4)				    :: aux
+					real(8)				    :: aux
 					call lagrangeGrid(pOrder,xi)
 					do i = 1, pOrder+1
 						dlpXi(i) = 0.0
@@ -147,7 +147,7 @@ module FEM
 			subroutine quadratureTable(pOrder,xgp,wgp)
 				implicit none
 					integer(4), intent(in)  :: pOrder
-					real(4)   , intent(out) :: xgp(pOrder+1), wgp(pOrder+1)
+					real(8)   , intent(out) :: xgp(pOrder+1), wgp(pOrder+1)
 					! Gauss-Legendre quadrature
 					if (pOrder == 1) then
 						xgp(1) = -0.577350269189626
@@ -298,8 +298,8 @@ module FEM
 				implicit none
 					integer(4), intent(in)  :: pOrder
 					integer(4)              :: iGauss
-					real(4)   , intent(out) :: wgp(porder+1), Ngp(porder+1,pOrder+1), dNgp(porder+1,pOrder+1)
-					real(4)                 :: xgp(pOrder+1)
+					real(8)   , intent(out) :: wgp(porder+1), Ngp(porder+1,pOrder+1), dNgp(porder+1,pOrder+1)
+					real(8)                 :: xgp(pOrder+1)
 					! Generate Gauss-Legendre quadrature table
 					call quadratureTable(pOrder,xgp,wgp)
 					! Generate shape functions and derivatives at all Gauss points
@@ -319,11 +319,11 @@ module elemOps
 					integer(4), intent(in)  :: nNodes, nGauss
 					integer(8), intent(in)  :: nElem, nPoints
 					integer(8), intent(in)  :: listConnec(nElem,nNodes)
-					real(4)   , intent(in)  :: wgp(nGauss), Ngp(nGauss,nNodes), dNgp(nGauss,nNodes)
-					real(4)   , intent(in)  :: Je, He, phi(nPoints)
-					real(4)   , intent(out) :: Rconvec(nPoints)
+					real(8)   , intent(in)  :: wgp(nGauss), Ngp(nGauss,nNodes), dNgp(nGauss,nNodes)
+					real(8)   , intent(in)  :: Je, He, phi(nPoints)
+					real(8)   , intent(out) :: Rconvec(nPoints)
 					integer(4)              :: iElem, iNode, iGauss, iPoint
-					real(4)                 :: phiElem(nNodes), aux
+					real(8)                 :: phiElem(nNodes), aux
 					! Initialize residual
 					Rconvec = 0.0
 					! Loop over elements
@@ -351,11 +351,11 @@ module elemOps
 					integer(4), intent(in)  :: nNodes, nGauss
 					integer(8), intent(in)  :: nElem, nPoints
 					integer(8), intent(in)  :: listConnec(nElem,nNodes)
-					real(4)   , intent(in)  :: wgp(nGauss), Ngp(nGauss,nNodes), dNgp(nGauss,nNodes)
-					real(4)   , intent(in)  :: Je, He, phi(nPoints)
-					real(4)   , intent(out) :: Rconvec(nPoints)
+					real(8)   , intent(in)  :: wgp(nGauss), Ngp(nGauss,nNodes), dNgp(nGauss,nNodes)
+					real(8)   , intent(in)  :: Je, He, phi(nPoints)
+					real(8)   , intent(out) :: Rconvec(nPoints)
 					integer(4)              :: iElem, iNode, iGauss, iPoint
-					real(4)                 :: phiElem(nNodes), aux
+					real(8)                 :: phiElem(nNodes), aux
 					! Initialize residual
 					Rconvec = 0.0
 					! Loop over elements
@@ -385,11 +385,11 @@ module elemOps
 					integer(4), intent(in)  :: nNodes, nGauss
 					integer(8), intent(in)  :: nElem, nPoints
 					integer(8), intent(in)  :: listConnec(nElem,nNodes)
-					real(4)   , intent(in)  :: wgp(nGauss), Ngp(nGauss,nNodes), dNgp(nGauss,nNodes)
-					real(4)   , intent(in)  :: Je, He, phi(nPoints)
-					real(4)   , intent(out) :: Rconvec(nPoints)
+					real(8)   , intent(in)  :: wgp(nGauss), Ngp(nGauss,nNodes), dNgp(nGauss,nNodes)
+					real(8)   , intent(in)  :: Je, He, phi(nPoints)
+					real(8)   , intent(out) :: Rconvec(nPoints)
 					integer(4)              :: iElem, iNode, iGauss, iPoint
-					real(4)                 :: aux
+					real(8)                 :: aux
 					! Initialize residual
 					!$acc kernels
 					Rconvec(:) = 0.0
@@ -422,21 +422,21 @@ program fem1d
 	use omp_lib
 	use openacc
 	implicit none
-		integer(4), parameter   :: pOrder=4 ! Element order (change at will up to 10)
+		integer(4), parameter   :: pOrder=8 ! Element order (change at will up to 10)
 		integer(4), parameter   :: nNodes=pOrder+1
 		integer(4), parameter   :: nGauss=pOrder+1
 		integer(4), parameter   :: nTimes=10
 		!integer(8), parameter   :: nElem=1e4*64 ! Number of elements (change at will)
-		integer(8), parameter   :: nElem=10000000 ! Number of elements (change at will)
+		integer(8), parameter   :: nElem=100000 ! Number of elements (change at will)
 		integer(8), parameter   :: nPoints=(nElem+1) + (nElem*(pOrder-1))
 		integer(8), allocatable :: listConnec(:,:)
 		integer(4)              :: iNode, iGauss, iTime
 		integer(8)              :: iElem, iPoint
 		real(8)   , parameter   :: pi=3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986d0
-		real(4)   , allocatable :: xyz(:), wgp(:), phi(:), Rconvec(:), Ngp(:,:), dNgp(:,:)
-		real(4)   , allocatable :: Rconvec_ACC(:), Rconvec_OMP(:)
-		real(4)                 :: hElem, Je, He
-		real(4)                 :: t0, t1, time, avgTime, maxDiff, diff
+		real(8)   , allocatable :: xyz(:), wgp(:), phi(:), Rconvec(:), Ngp(:,:), dNgp(:,:)
+		real(8)   , allocatable :: Rconvec_ACC(:), Rconvec_OMP(:)
+		real(8)                 :: hElem, Je, He
+		real(8)                 :: t0, t1, time, avgTime, maxDiff, diff
 		! Display number of threads and number of nvidia devices
 		write(*,'(a)') "!----------------------------------------!"
 		write(*,'(a,i4)') "Number of threads: ", omp_get_max_threads()
@@ -469,8 +469,8 @@ program fem1d
 		allocate(phi(nPoints))
 		!$acc parallel loop
 		do iPoint = 1,nPoints
-			!phi(iPoint) = 1000.0*sin(2*100*pi*xyz(iPoint))
-			phi(iPoint) = real(iPoint,4)/real(nPoints,4)
+			phi(iPoint) = 1000.0*sin(2*100*pi*xyz(iPoint))
+			!phi(iPoint) = real(iPoint,4)/real(nPoints,4)
 		end do
 		!$acc end parallel loop
 		! Allocate residual arrays
