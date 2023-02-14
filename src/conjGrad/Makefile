@@ -1,12 +1,30 @@
 # Set the fortran compiler to nvfortran
-FC = nvfortran
+#FC = nvfortran
+FC = gfortran
 
 # Set device compute capability and cuda version
 CCXY = cc61
 CUDAXY = cuda11.8
 
+# Options
+USE_OMP = 1
+USE_ACC = 1
+
 # Set the flags for the nnvfortran compiler
-FFLAGS = -fast -Minfo=all -gpu=$(CCXY),$(CUDAXY),managed,lineinfo -cuda -acc -mp=multicore
+ifeq ($(FC),nvfortran)
+	FFLAGS = -cpp -fast -Minfo=all -gpu=$(CCXY),$(CUDAXY),managed,lineinfo
+	ifeq ($(USE_OMP),1)
+		FFLAGS += -DUSE_OMP-mp=gpu
+	endif
+	ifeq ($(USE_ACC),1)
+		FFLAGS += -DUSE_ACC -acc
+	endif
+else ifeq ($(FC),gfortran)
+	FFLAGS = -cpp -O3 -march=native
+	ifeq ($(USE_OMP),1)
+		FFLAGS += -DUSE_OMP -fopenmp
+	endif
+endif
 
 # Set the source files
 SRC = conjGrad.f90

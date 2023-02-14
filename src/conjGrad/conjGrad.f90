@@ -288,18 +288,26 @@ module solver
 end module solver
 
 program test
+#ifdef USE_OMP
     use omp_lib
+#endif
+#ifdef USE_ACC
     use openacc
+#endif
     use solver
         implicit none
-            integer(8), parameter   :: n =40000 ! Matrix and array size (change at will)
+            integer(8), parameter   :: n =5000 ! Matrix and array size (change at will)
             integer(8), parameter   :: nTimes = 10
             real(4)   , parameter   :: pi = 3.141592653589793238462643383279502884197169399375105820974944592307816406286
             real(4)   , allocatable :: A(:,:), b(:), x(:), xOMP(:), xV0(:), xV1(:)
             integer(8)              :: i, j, iTimes
             real(4)                 :: t0, t1, avgTime
+#ifdef USE_OMP
             print*, "Number of threads: ", omp_get_max_threads()
+#endif
+#ifdef USE_ACC
             print*, "Number of devices: ", acc_get_num_devices(acc_device_nvidia)
+#endif
             print*, "Memory required: ", (4.0*n*n + 4.0*2*n + 4.0*3*n)/1024.0/1024.0/1024.0, " GB"
             ! Allocate arrays
             allocate(A(n,n), b(n), x(n))
