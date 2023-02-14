@@ -306,7 +306,7 @@ module solver
                         p(i) = 0.0
                         Ap(i) = 0.0
                     end do
-                    !$omp end parallel do
+                    !$omp end target teams distribute parallel do
                     ! Compute initial residual
                     !$omp parallel do private(aux)
                     do i = 1, n
