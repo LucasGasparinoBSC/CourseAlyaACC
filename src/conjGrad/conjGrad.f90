@@ -285,6 +285,91 @@ module solver
                         beta = (err**2)/rho
                     end do outer
             end subroutine conjGrad_OMP
+
+            subroutine conjGrad_OMPGPU(A,b,x,n)
+                implicit none
+                    integer(8), intent(in)  :: n
+                    real(4)   , intent(in)  :: A(n,n), b(n)
+                    real(4)   , intent(out) :: x(n)
+                    real(4)                 :: r(n), p(n), Ap(n)
+                    ! Initialize auxliary variables
+                    alpha = 0.0
+                    beta  = 0.0
+                    rho   = 0.0
+                    err   = 0.0
+                    aux   = 0.0
+                    ! Initialize auxilliary arrays
+                    !$omp target teams distribute parallel do
+                    do i = 1, n
+                        x(i) = 0.0
+                        r(i) = 0.0
+                        p(i) = 0.0
+                        Ap(i) = 0.0
+                    end do
+                    !$omp end parallel do
+                    ! Compute initial residual
+                    !$omp parallel do private(aux)
+                    do i = 1, n
+                        aux = 0.0
+                        !$omp simd reduction(+:aux)
+                        do j = 1, n
+                            aux = aux + A(i,j)*x(j)
+                        end do
+                        r(i) = b(i) - aux
+                    end do
+                    !$omp end parallel do
+                    ! Start conjugate gradient iterations
+                    outer:do iter = 1,maxIter
+                        !$omp parallel do
+                        do i = 1, n
+                            p(i) = r(i) + beta*p(i)
+                        end do
+                        !$omp end parallel do
+                        rho = 0.0
+                        !$omp parallel do reduction(+:rho)
+                        do i = 1, n
+                            rho = rho + r(i)*r(i)
+                        end do
+                        !$omp end parallel do
+                        !$omp parallel do private(aux)
+                        do i = 1, n
+                            aux = 0.0
+                            !$omp simd reduction(+:aux)
+                            do j = 1,n
+                                aux = aux + A(i,j)*p(j)
+                            end do
+                            Ap(i) = aux
+                        end do
+                        !$omp end parallel do
+                        aux = 0.0
+                        !$omp parallel do reduction(+:aux)
+                        do i = 1, n
+                            aux = aux + p(i)*Ap(i)
+                        end do
+                        !$omp end parallel do
+                        alpha = rho/aux
+                        !$omp parallel do
+                        do i = 1, n
+                            x(i) = x(i) + alpha*p(i)
+                            r(i) = r(i) - alpha*Ap(i)
+                        end do
+                        !$omp end parallel do
+                        err = 0.0
+                        !$omp parallel do reduction(+:err)
+                        do i = 1, n
+                            err = err + r(i)*r(i)
+                        end do
+                        !$omp end parallel do
+                        err = sqrt(err)
+                        if (err < tol) then
+                            write(*,*) "Conjugate gradient converged in ", iter, " iterations"
+                            write(*,*) "Residual norm: ", err
+                            exit outer
+                        end if
+                        write(*,*) "Iteration: ", iter, " Residual norm: ", err
+                        beta = (err**2)/rho
+                    end do outer
+            end subroutine conjGrad_OMPGPU
 end module solver
 
 program test

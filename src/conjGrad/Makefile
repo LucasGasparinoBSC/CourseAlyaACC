@@ -1,6 +1,6 @@
 # Set the fortran compiler to nvfortran
-#FC = nvfortran
-FC = gfortran
+FC = nvfortran
+#FC = gfortran
 
 # Set device compute capability and cuda version
 CCXY = cc61
@@ -14,7 +14,7 @@ USE_ACC = 1
 ifeq ($(FC),nvfortran)
 	FFLAGS = -cpp -fast -Minfo=all -gpu=$(CCXY),$(CUDAXY),managed,lineinfo
 	ifeq ($(USE_OMP),1)
-		FFLAGS += -DUSE_OMP-mp=gpu
+		FFLAGS += -DUSE_OMP -mp=gpu
 	endif
 	ifeq ($(USE_ACC),1)
 		FFLAGS += -DUSE_ACC -acc
